@@ -1,0 +1,28 @@
+---
+- hosts: all
+  become: true
+  remote_user: vagrant
+  tasks:
+
+
+  - name: check ssh key exists
+    become: false
+    stat: path="/Users/darren/.ssh/id_ecdsa"
+    register: ssh_key_file
+    delegate_to: 127.0.0.1
+  
+  - name: Generate ssh keypair
+    become: false
+    openssh_keypair:
+      path: "/Users/darren/.ssh/id_ecdsa"
+      type: ecdsa
+      size: 521
+      force: true
+    delegate_to: 127.0.0.1
+    when: not ssh_key_file.stat.exists
+
+  - name: add authorised_key entry
+    authorized_key:
+      user: vagrant
+      key: "{{ lookup('file', '/Users/darren/.ssh/id_ecdsa.pub') }}"
+      state: present

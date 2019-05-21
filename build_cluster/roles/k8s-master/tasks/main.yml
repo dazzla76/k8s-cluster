@@ -1,0 +1,37 @@
+---
+# tasks file for k8s-master
+- name: Install kubectl and kubeadm
+  yum:
+    name: "{{ packages }}"
+    state: latest
+    disable_excludes: "kubernetes"
+  vars:
+    packages:
+    - kubeadm
+    - kubectl
+ 
+- name: Initialize the Kubernetes cluster using kubeadm
+  command: kubeadm init --apiserver-advertise-address="192.168.205.10" --apiserver-cert-extra-sans="192.168.205.10"  --node-name k8s-master --pod-network-cidr=10.244.0.0/16
+
+- name: Setup kubeconfig for vagrant user
+  command: "{{ item }}"
+  with_items:
+   - rm -rf /home/vagrant/.kube
+   - mkdir -p /home/vagrant/.kube
+   - cp -i /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+   - chown vagrant:vagrant /home/vagrant/.kube/config
+
+- name: Install calico pod network
+  become: no
+  command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+- name: exit early
+  meta: end_play
+
+- name: Generate join command
+  become: no
+  command: kubeadm token create --print-join-command
+  register: join_command
+
+  #- name: Copy join command to local file
+  #become: no

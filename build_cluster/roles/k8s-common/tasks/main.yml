@@ -1,0 +1,105 @@
+---
+# tasks file for k8s-common
+#
+- name: Install OS updates
+  yum: name=* state=latest
+
+- name: Install kubernetes yum repo
+  yum_repository:
+    name: kubernetes
+    description: "Upstream Kubernetes"
+    baseurl: "https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64"
+    gpgcheck: yes
+    gpgkey: "https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg"
+    repo_gpgcheck: yes
+    exclude: "kube*"
+    enabled: yes
+
+- name: Set selinux to permissive mode
+  selinux:
+    policy: targeted
+    state: permissive
+
+- name: Disable selinux
+  selinux:
+    state: disabled
+
+- name: Install kubernetes
+  yum:
+    name: "{{ packages }}"
+    state: latest
+    disable_excludes: "kubernetes"
+  vars:
+    packages:
+    - kubelet
+    - kubeadm
+    - kubectl
+    - docker
+
+- name: Install cockpit
+  yum:
+    name: "{{ packages }}"
+    state: latest
+  vars:
+    packages:
+    - cockpit 
+    - cockpit-storaged
+    - cockpit-packagekit
+    - cockpit-docker
+
+- name: Enable kubelet service
+  service:
+    name: kubelet
+    state: started
+    enabled: yes 
+
+- name: Enable docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes 
+
+- name: Disable swap
+  command: swapoff -a
+
+- name : Remove swap line from /etc/fstab
+  lineinfile:
+    path: /etc/fstab
+    state: absent
+    regexp: '^/swapfile'
+
+- name: Remove swapfile
+  file:
+    path: "/swapfile"
+    state: absent
+
+- name: enable modprobe for br_netfilter
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: enable ipv4 ip_forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: 1
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Reboot machine
+  reboot:
+
+- name: Add docker group to the system
+  user:
+    name: docker
+    state: present
+
+- name: Add vagrant user to docker group
+  user:
+    name: vagrant
+    group: docker
+
+- name: restart docker
+  service:
+    name: docker
+    state: restarted
